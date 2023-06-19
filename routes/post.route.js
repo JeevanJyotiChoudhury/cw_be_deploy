@@ -4,6 +4,48 @@ const { PostModel } = require("../model/post.model");
 
 const postRouter = express.Router();
 
+// ------------------------Admin Side----------------------
+
+// get the post
+postRouter.get("/admin/get-posts", async (req, res) => {
+  try {
+    const { page = 1, category, location, limit } = req.query;
+    const skip = (page - 1) * limit;
+    let filter = {};
+
+    if (category) {
+      filter.category = category;
+    }
+    if (location) {
+      filter.location = location;
+    }
+
+    const posts = await PostModel.find({ ...filter })
+      .skip(skip)
+      .limit(limit);
+
+    res.send(posts);
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
+//delete
+postRouter.delete("/admin/delete/:postID", async (req, res) => {
+  const { postID } = req.params;
+  try {
+    const post = await PostModel.findOne({ _id: postID });
+    await PostModel.findByIdAndDelete({ _id: postID });
+    res.json({ msg: `${post.title} has been deleted succesfully` });
+
+  } catch (err) {
+    res.json({ error: err.message });
+  }
+});
+
+// -------------------------Client Side-------------------------------
+
+
 // postRouter.use(auth);
 
 //add a post
@@ -17,13 +59,10 @@ postRouter.post("/add", async (req, res) => {
   }
 });
 
-// get the post
+// get the post/filter/search/pagination
 postRouter.get("/", async (req, res) => {
   try {
-    const { page = 1, category, location } = req.query;
-    const limit = 9;
-    //dynamic limit
-    //const { page = 1, category, location, limit } = req.query;
+    const { page = 1, category, location, limit, q } = req.query;
     const skip = (page - 1) * limit;
     let filter = {};
 
@@ -33,11 +72,14 @@ postRouter.get("/", async (req, res) => {
     if (location) {
       filter.location = location;
     }
-
+    if (q) {
+      filter.$or = [
+        { title: { $regex: q, $options: "i" } }
+      ];
+    }
     const posts = await PostModel.find({ userID: req.body.userID, ...filter })
       .skip(skip)
       .limit(limit);
-
     res.send(posts);
   } catch (err) {
     res.json({ error: err.message });
